@@ -69,8 +69,9 @@ class Chapter(Base):
     novel_id = Column(UUID(as_uuid=True), ForeignKey("novels.id", ondelete="CASCADE"), index=True, nullable=False)
     chapter_number = Column(Float, nullable=False)
     title = Column(String(255))
-    content = Column(Text, nullable=False) # Menyimpan HTML hasil parse
+    content = Column(Text, nullable=False)
     original_pdf_url = Column(String(500), nullable=True)
+    cover_image_url = Column(String(500), nullable=True)
     published_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relasi balik

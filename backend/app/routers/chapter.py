@@ -1,8 +1,10 @@
+import os
+import uuid
+import aiofiles
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import Optional
-import uuid
 from app.database import get_db
 from app.models import Novel, Chapter
 from app.schemas import ChapterResponse, ChapterReadResponse
@@ -18,12 +20,12 @@ async def upload_chapter_pdf(
     novel_id: str = Form(..., description="ID dari Novel yang sudah dibuat"),
     chapter_number: float = Form(..., description="Nomor chapter (misal: 1, 2, atau 1.5)"),
     title: Optional[str] = Form(None, description="Judul spesifik chapter (opsional)"),
-    # PASTIKAN di bawah ini menggunakan File(...), bukan Form(...)
     file: UploadFile = File(..., description="File PDF Light Novel"),
+    cover_file: Optional[UploadFile] = File(None, description="File Gambar Cover Volume (Opsional)"), # <-- PARAMETER BARU
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Endpoint untuk mengunggah file PDF, mengekstrak teksnya secara otomatis,
+    Endpoint untuk mengunggah file PDF, gambar cover volume, mengekstrak teks otomatis,
     dan menyimpannya sebagai chapter baru ke dalam database.
     """
     
@@ -33,7 +35,7 @@ async def upload_chapter_pdf(
     except ValueError:
         raise HTTPException(status_code=400, detail="Format novel_id tidak valid (harus UUID)")
 
-    # 2. Validasi tipe file
+    # 2. Validasi tipe file utama
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="File harus berupa PDF.")
         
@@ -43,6 +45,27 @@ async def upload_chapter_pdf(
     if not novel:
         raise HTTPException(status_code=404, detail="Novel tidak ditemukan.")
         
+    # --- PROSES GAMBAR COVER VOLUME ---
+    cover_url = None
+    if cover_file:
+        if not cover_file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="Cover harus berupa file gambar.")
+            
+        # Buat nama file unik dan path penyimpanan
+        cover_filename = f"vol_cover_{uuid.uuid4().hex}_{cover_file.filename}"
+        cover_path = os.path.join("static", "covers", cover_filename)
+        
+        # Pastikan folder static/covers ada
+        os.makedirs(os.path.dirname(cover_path), exist_ok=True)
+        
+        # Simpan file gambar
+        async with aiofiles.open(cover_path, 'wb') as out_file:
+            content = await cover_file.read()
+            await out_file.write(content)
+            
+        cover_url = f"http://localhost:8000/static/covers/{cover_filename}"
+    # ----------------------------------
+
     try:
         # 4. Baca file ke dalam memori (RAM)
         pdf_bytes = await file.read()
@@ -58,7 +81,8 @@ async def upload_chapter_pdf(
             novel_id=valid_novel_id,
             chapter_number=chapter_number,
             title=title,
-            content=extracted_html
+            content=extracted_html,
+            cover_image_url=cover_url # <-- SIMPAN URL COVER
         )
         
         db.add(new_chapter)
@@ -119,6 +143,7 @@ async def read_chapter(novel_slug: str, chapter_number: float, db: AsyncSession 
         chapter_number=current_chapter.chapter_number,
         title=current_chapter.title,
         content=current_chapter.content,
+        cover_image_url=current_chapter.cover_image_url, # <-- SISIPKAN COVER KE RESPONSE
         published_at=current_chapter.published_at,
         prev_chapter=prev_ch,
         next_chapter=next_ch

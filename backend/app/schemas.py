@@ -27,6 +27,7 @@ class GenreResponse(GenreBase):
 class ChapterBase(BaseModel):
     chapter_number: float
     title: Optional[str] = None
+    cover_image_url: Optional[str] = None 
 
 class ChapterResponse(ChapterBase):
     id: UUID
@@ -43,9 +44,9 @@ class ChapterReadResponse(BaseModel):
     chapter_number: float
     title: Optional[str] = None
     content: str
+    cover_image_url: Optional[str] = None
     published_at: datetime
     
-    # Navigasi (Float karena chapter bisa berupa 1.5)
     prev_chapter: Optional[float] = None
     next_chapter: Optional[float] = None
 

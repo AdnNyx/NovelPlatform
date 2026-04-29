@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,13 +22,16 @@ export default function RootLayout({
       <body
         className={`${inter.className} bg-gray-50 text-gray-900 min-h-screen flex flex-col`}
       >
-        {/* Navbar */}
-        <Navbar />
+        <SmoothScrollProvider>
+          {/* Navbar */}
+          <Navbar />
 
-        {/* Main Content */}
-        <main className="grow animate-fade-in">{children}</main>
+          {/* Main Content */}
+          <main className="grow">{children}</main>
 
-        {/* Footer */}
+          {/* Footer */}
+          <Footer />
+        </SmoothScrollProvider>
       </body>
     </html>
   );

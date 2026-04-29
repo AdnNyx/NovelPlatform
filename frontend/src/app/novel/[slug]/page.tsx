@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-// Interface
+// Interfaces
 interface Genre {
   id: string;
   name: string;
@@ -12,6 +12,7 @@ interface ChapterList {
   id: string;
   chapter_number: number;
   title: string | null;
+  cover_image_url: string | null;
   published_at: string;
 }
 
@@ -26,7 +27,6 @@ interface NovelDetail {
   chapters: ChapterList[];
 }
 
-// Fetching Function
 async function getNovelDetail(slug: string): Promise<NovelDetail | null> {
   try {
     const res = await fetch(`http://127.0.0.1:8000/api/v1/novels/${slug}`, {
@@ -35,12 +35,11 @@ async function getNovelDetail(slug: string): Promise<NovelDetail | null> {
     if (!res.ok) return null;
     return res.json();
   } catch (error) {
-    console.error("Error fetching novel detail:", error);
+    console.error(`Gagal mengambil detail novel ${slug}:`, error);
     return null;
   }
 }
 
-// Main Components
 export default async function NovelDetailPage({
   params,
 }: {
@@ -52,161 +51,163 @@ export default async function NovelDetailPage({
   if (!novel) notFound();
 
   return (
-    <div className="animate-fade-in flex flex-col min-h-screen bg-slate-50">
-      <div className="relative w-full bg-slate-900 py-12 md:py-20 overflow-hidden shadow-inner">
-        {novel.cover_image_url && (
-          <div className="absolute inset-0 opacity-30 blur-3xl scale-110 pointer-events-none">
-            <Image
-              src={novel.cover_image_url}
-              alt="Background"
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          </div>
-        )}
-
-        <div className="absolute inset-0 bg-to-t from-slate-900 via-slate-900/60 to-transparent pointer-events-none"></div>
-
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row gap-8 items-center md:items-start z-10">
-          {/* Cover */}
-          <div className="shrink-0 w-48 sm:w-64 overflow-hidden rounded-xl shadow-2xl border border-white/10 ring-4 ring-black/20">
-            <div className="relative aspect-2/3 w-full bg-slate-800">
+    <div className="animate-fade-in min-h-screen bg-slate-50 pb-20">
+      {/* ========================================================
+        POIN 1 & 2: COVER DI KIRI, INFORMASI DI KANAN
+        ========================================================
+      */}
+      <div className="bg-slate-900 pt-12 pb-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center md:items-start">
+            {/* 1. Cover Kiri */}
+            <div className="shrink-0 w-56 sm:w-64 aspect-2/3 relative rounded-lg overflow-hidden shadow-2xl border border-slate-700">
               {novel.cover_image_url ? (
                 <Image
                   src={novel.cover_image_url}
-                  alt={novel.title}
+                  alt={`Cover ${novel.title}`}
                   fill
-                  sizes="(max-width: 768px) 100vw, 300px"
                   className="object-cover"
                   priority
                   unoptimized
                 />
               ) : (
-                <div className="flex items-center justify-center w-full h-full text-slate-500 font-medium">
+                <div className="flex items-center justify-center h-full bg-slate-800 text-slate-500">
                   No Cover
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Title */}
-          <div className="flex flex-col text-center md:text-left text-white md:mt-4">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-4 drop-shadow-md">
-              {novel.title}
-            </h1>
+            {/* 2. Informasi Kanan */}
+            <div className="flex flex-col text-center md:text-left text-white mt-4 md:mt-0 w-full">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+                {novel.title}
+              </h1>
 
-            {/* Tag Genre */}
-            {novel.genres && novel.genres.length > 0 && (
               <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-6">
                 {novel.genres.map((g) => (
                   <span
                     key={g.id}
-                    className="px-3 py-1 bg-indigo-500/20 text-indigo-200 border border-indigo-500/30 rounded-full text-sm font-medium backdrop-blur-sm"
+                    className="px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs font-semibold text-slate-300"
                   >
                     {g.name}
                   </span>
                 ))}
               </div>
-            )}
 
-            <div className="text-slate-300 font-medium">
-              Ditulis oleh:{" "}
-              <span className="text-white">{novel.author || "Anonim"}</span>
+              <div className="space-y-2 text-slate-300">
+                <p>
+                  <span className="text-slate-500 mr-2">Penulis:</span>
+                  <span className="font-medium text-slate-200">
+                    {novel.author || "Anonim"}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-slate-500 mr-2">Total Volume:</span>
+                  <span className="font-medium text-slate-200">
+                    {novel.chapters?.length || 0}
+                  </span>
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Content Section */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row gap-12 w-full">
-        {/* Left */}
-        <div className="md:w-2/3">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-            <svg
-              className="w-6 h-6 text-indigo-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+      {/* ========================================================
+        POIN 3: SINOPSIS DI BAGIAN BAWAH FULL
+        ========================================================
+      */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-10">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
+          <h2 className="text-xl font-bold text-slate-900 mb-4 border-b border-slate-100 pb-2">
             Sinopsis
           </h2>
-          <div className="prose prose-lg prose-slate max-w-none text-slate-700 leading-loose text-justify whitespace-pre-line bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            {novel.synopsis || "Belum ada sinopsis untuk novel ini."}
+          <div className="text-slate-700 leading-relaxed text-justify whitespace-pre-line">
+            {novel.synopsis ||
+              "Belum ada sinopsis yang ditambahkan untuk novel ini."}
           </div>
         </div>
+      </div>
 
-        {/* Chapter/Volume List */}
-        <div className="md:w-1/3">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-            <svg
-              className="w-6 h-6 text-indigo-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 10h16M4 14h16M4 18h16"
-              />
-            </svg>
-            Daftar Chapter
-          </h2>
+      {/* ========================================================
+        POIN 4: DAFTAR CHAPTER / VOLUME DENGAN TATA LETAK POTRET (PORTRAIT)
+        ========================================================
+      */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
+        <h2 className="text-xl font-bold text-slate-900 mb-6">
+          Daftar Volume Terbit
+        </h2>
 
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-            {novel.chapters && novel.chapters.length > 0 ? (
-              <div className="flex flex-col gap-3 max-h-150 overflow-y-auto pr-2 custom-scrollbar">
-                {novel.chapters.map((ch) => (
-                  <Link
-                    key={ch.id}
-                    href={`/novel/${novel.slug}/${ch.chapter_number}`}
-                    className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-indigo-500 hover:shadow-md hover:bg-white transition-all group"
-                  >
-                    <div>
-                      <div className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
-                        Chapter {ch.chapter_number}
-                      </div>
-                      {ch.title && (
-                        <div className="text-sm text-slate-500 truncate max-w-45 mt-0.5">
-                          {ch.title}
-                        </div>
-                      )}
+        {novel.chapters && novel.chapters.length > 0 ? (
+          /* Grid diubah untuk menampung kartu vertikal: 2 kolom (HP), 3 (Tablet), 4-5 (Desktop) */
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+            {novel.chapters.map((ch) => (
+              <Link
+                key={ch.id}
+                href={`/novel/${novel.slug}/${ch.chapter_number}`}
+                /* Diubah menjadi flex-col agar gambar di atas, teks di bawah */
+                className="flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden hover:border-indigo-500 hover:shadow-xl transition-all group"
+              >
+                {/* Thumbnail Cover Volume - Dikunci dengan aspect-[2/3] */}
+                <div className="relative w-full aspect-2/3 bg-slate-100 border-b border-slate-100 overflow-hidden">
+                  {ch.cover_image_url ? (
+                    <Image
+                      src={ch.cover_image_url}
+                      alt={`Volume ${ch.chapter_number}`}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 p-2 text-center bg-slate-50">
+                      <svg
+                        className="w-8 h-8 text-slate-300 mb-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <span className="text-[10px] font-bold uppercase tracking-wider">
+                        Tanpa Cover
+                      </span>
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                      &rarr;
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="py-10 flex flex-col items-center justify-center text-center text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">
-                <svg
-                  className="w-12 h-12 mb-3 text-slate-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-                <span>Belum ada chapter yang dirilis.</span>
-              </div>
-            )}
+                  )}
+                </div>
+
+                {/* Detail Volume di bawah gambar */}
+                <div className="p-4 flex flex-col grow">
+                  <span className="text-xs font-bold text-indigo-600 mb-1 tracking-wider">
+                    VOLUME {ch.chapter_number}
+                  </span>
+                  <h3 className="font-bold text-slate-900 text-sm line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                    {ch.title || `Chapter ${ch.chapter_number}`}
+                  </h3>
+                  <div className="mt-auto pt-3">
+                    <p className="text-xs text-slate-500 font-medium">
+                      {new Date(ch.published_at).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
-        </div>
+        ) : (
+          <div className="bg-white rounded-xl p-12 border-2 border-dashed border-slate-200 text-center">
+            <p className="text-slate-500 font-medium">
+              Novel ini belum memiliki volume yang diunggah.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

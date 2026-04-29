@@ -9,7 +9,7 @@ from typing import List
 from datetime import datetime, timezone
 from sqlalchemy.orm import selectinload
 from app.database import get_db
-from app.models import Novel, Genre
+from app.models import Novel, Genre, Chapter
 from app.schemas import NovelCreate, NovelResponse, NovelDetailResponse
 from fastapi import Query
 from sqlalchemy import or_, select, func
@@ -17,23 +17,22 @@ from sqlalchemy import or_, select, func
 
 router = APIRouter()
 
-# --- Fungsi Bantuan ---
+# Help Function
 def generate_slug(title: str) -> str:
     """Mengubah 'Judul Novel Baru!' menjadi 'judul-novel-baru' untuk URL"""
     slug = title.lower()
     slug = re.sub(r'[^a-z0-9]+', '-', slug)
     return slug.strip('-')
 
-# --- Endpoints ---
+# Endpoints
 
 @router.post("/", response_model=NovelResponse, status_code=status.HTTP_201_CREATED)
 async def create_novel(novel_in: NovelCreate, db: AsyncSession = Depends(get_db)):
     """Menambahkan data novel baru ke database."""
     
-    # 1. Buat slug dari title
     slug = generate_slug(novel_in.title)
     
-    # 2. Cek apakah slug sudah ada di database (karena slug harus unik)
+    # Check Slug
     result = await db.execute(select(Novel).where(Novel.slug == slug))
     existing_novel = result.scalars().first()
     if existing_novel:
@@ -42,7 +41,7 @@ async def create_novel(novel_in: NovelCreate, db: AsyncSession = Depends(get_db)
             detail="Novel dengan judul ini (atau slug yang sama) sudah ada."
         )
     
-    # 3. Siapkan objek SQLAlchemy baru
+    # Object SQLAlchemy
     new_novel = Novel(
         title=novel_in.title,
         slug=slug,
@@ -56,7 +55,7 @@ async def create_novel(novel_in: NovelCreate, db: AsyncSession = Depends(get_db)
         db_genres = genre_result.scalars().all()
         new_novel.genres = list(db_genres)
     
-    # 4. Simpan ke database
+    # Save in Database
     db.add(new_novel)
     await db.commit()
     await db.refresh(new_novel)
@@ -67,7 +66,7 @@ async def create_novel(novel_in: NovelCreate, db: AsyncSession = Depends(get_db)
 async def get_novels(skip: int = 0, limit: int = 20, db: AsyncSession = Depends(get_db)):
     """Mengambil daftar semua novel."""
     
-    # Query untuk mengambil data novel dengan pagination sederhana
+    # Query
     result = await db.execute(select(Novel).offset(skip).limit(limit))
     novels = result.scalars().all()
     
@@ -77,43 +76,45 @@ async def get_novels(skip: int = 0, limit: int = 20, db: AsyncSession = Depends(
 async def get_latest_novels(
     page: int = Query(1, ge=1, description="Nomor halaman aktif"),
     limit: int = Query(12, ge=1, le=50, description="Jumlah item per halaman"),
-    search: str | None = Query(None, description="Kata kunci pencarian judul"), # <-- INI YANG BARU
+    search: str | None = Query(None, description="Kata kunci pencarian judul"),
+    genre_id: int | None = Query(None, description="Filter berdasarkan ID Genre"), 
+    status: str | None = Query(None, description="Filter berdasarkan Status (ongoing, dll)"), 
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Mengambil daftar novel dengan sistem Pagination dan Pencarian.
+    Mengambil daftar novel dengan sistem Pagination, Pencarian, dan Filter Kombinasi.
     """
-    # 1. Siapkan filter pencarian
+    query = select(Novel).options(selectinload(Novel.genres))
+    
     conditions = []
+    
+    # Filter Text
     if search:
-        # Mencari judul yang mengandung kata kunci (case-insensitive)
         conditions.append(Novel.title.ilike(f"%{search}%"))
-
-    # 2. Hitung total item (sesuaikan dengan hasil filter jika ada)
-    count_query = select(func.count(Novel.id))
-    if conditions:
-        count_query = count_query.where(*conditions) # <-- INI YANG BARU
         
+    # Filter Status
+    if status:
+        conditions.append(Novel.status == status)
+
+    # - Filter Genre
+    if genre_id:
+        conditions.append(Novel.genres.any(Genre.id == genre_id))
+
+    if conditions:
+        query = query.where(*conditions)
+
+    count_query = select(func.count()).select_from(query.subquery())
     total_items = (await db.execute(count_query)).scalar() or 0
     total_pages = math.ceil(total_items / limit) if total_items > 0 else 1
 
-    # 3. Ambil data spesifik untuk halaman yang diminta (Offset & Limit)
+    # Offset & Limit
     skip = (page - 1) * limit
-    query = (
-        select(Novel)
-        .options(selectinload(Novel.genres))
-        .order_by(Novel.created_at.desc())
-    )
+    query = query.order_by(Novel.created_at.desc()).offset(skip).limit(limit)
     
-    # Terapkan filter pencarian ke query utama
-    if conditions:
-        query = query.where(*conditions) # <-- INI YANG BARU
-        
-    query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     novels = result.scalars().all()
 
-    # 4. Kembalikan data dibungkus dengan informasi Meta
+    # Response
     return {
         "data": novels,
         "meta": {
@@ -123,6 +124,7 @@ async def get_latest_novels(
             "limit": limit
         }
     }
+
 @router.get("/search", response_model=List[NovelResponse])
 async def search_novels(
     q: str = Query(..., min_length=2, description="Kata kunci pencarian (minimal 2 huruf)"),
@@ -131,7 +133,6 @@ async def search_novels(
     """
     Mesin pencari sederhana berdasarkan Judul atau Nama Penulis.
     """
-    # Menggunakan ILIKE agar pencarian case-insensitive
     search_pattern = f"%{q}%"
     
     result = await db.execute(
@@ -145,6 +146,18 @@ async def search_novels(
     search_results = result.scalars().all()
     
     return search_results
+
+@router.get("/stats/summary")
+async def get_admin_stats(db: AsyncSession = Depends(get_db)):
+    novel_count = await db.execute(select(func.count(Novel.id)))
+    chapter_count = await db.execute(select(func.count(Chapter.id)))
+    genre_count = await db.execute(select(func.count(Genre.id)))
+
+    return {
+        "total_novels": novel_count.scalar() or 0,
+        "total_chapters": chapter_count.scalar() or 0,
+        "total_genres": genre_count.scalar() or 0
+    }
 
 @router.get("/{slug}", response_model=NovelDetailResponse)
 async def get_novel_detail(slug: str, db: AsyncSession = Depends(get_db)):
@@ -173,17 +186,14 @@ async def upload_novel_cover(
     """
     Endpoint untuk mengunggah dan memperbarui gambar cover novel.
     """
-    # 1. Validasi manual UUID
     try:
         valid_id = uuid.UUID(novel_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Format novel_id tidak valid (harus UUID)")
         
-    # 2. Validasi tipe file (harus gambar)
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File harus berupa gambar (JPG, PNG, dll).")
         
-    # 3. Cari novel di database (dan load relasi genres agar response Pydantic tidak error)
     result = await db.execute(
         select(Novel).options(selectinload(Novel.genres)).where(Novel.id == valid_id)
     )
@@ -192,20 +202,18 @@ async def upload_novel_cover(
     if not novel:
         raise HTTPException(status_code=404, detail="Novel tidak ditemukan.")
         
-    # 4. Simpan gambar ke folder static/covers/
     ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
     filename = f"{uuid.uuid4().hex}.{ext}"
     filepath = os.path.join("static", "covers", filename)
     
-    # Baca dan tulis file
     file_bytes = await file.read()
     with open(filepath, "wb") as f:
         f.write(file_bytes)
         
-    # 5. Perbarui URL di database
+    # Perbarui URL di database
     base_url = "http://localhost:8000"
     novel.cover_image_url = f"{base_url}/static/covers/{filename}"
-    novel.updated_at = datetime.now(timezone.utc) # Opsional: Tandai ada update
+    novel.updated_at = datetime.now(timezone.utc)
     
     db.add(novel)
     await db.commit()
