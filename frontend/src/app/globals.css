@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #4F46E5;
+  --color-primary-hover: #4338CA;
+  --color-secondary: #D97706;
+  --color-surface-light: #FAFAFA;
+  --color-card-light: #FFFFFF;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-border-subtle: #E5E7EB;
+
+  /* Reader Default Theme Variables (Terang) */
+  --reader-bg: #FFFFFF;
+  --reader-text: #1F2937;
+}
+
+/* Reader Mode Theme Variants (Zero-Flicker CSS Custom Properties) */
+[data-reader-theme="Terang"] {
+  --reader-bg: #FFFFFF;
+  --reader-text: #1F2937;
+}
+
+[data-reader-theme="Sepia"] {
+  --reader-bg: #F4ECD8;
+  --reader-text: #433422;
+}
+
+[data-reader-theme="Gelap"] {
+  --reader-bg: #121214;
+  --reader-text: #D4D4D8;
+}
+
+body {
+  background-color: var(--color-surface-light);
+  color: var(--color-text-primary);
+  font-family: 'Plus Jakarta Sans', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}

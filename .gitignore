@@ -1,0 +1,23 @@
+﻿# Dependencies & Virtual Environments
+node_modules/
+.pnpm-store/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Build Outputs
+.next/
+out/
+dist/
+build/
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# OS & IDE
+.vscode/
+.DS_Store
+Thumbs.db
